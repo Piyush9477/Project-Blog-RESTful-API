@@ -1,4 +1,6 @@
 const {User} = require("../models");
+const hashPassword = require("../utils/hashPassword");
+const comparePassword = require("../utils/comparePassword");
 
 const signup = async (req, res, next) => {
     try{
@@ -10,7 +12,9 @@ const signup = async (req, res, next) => {
             throw new Error("Email already exists");
         }
 
-        const newUser = User({name, email, password, role});
+        const hashedPassword = await hashPassword(password);
+
+        const newUser = User({name, email, password: hashedPassword, role});
 
         await newUser.save();
 
@@ -18,6 +22,27 @@ const signup = async (req, res, next) => {
     }catch(error){
         next(error);
     }
-};
+}; 
 
-module.exports = {signup};
+const signin = async (req,res,next) => {
+    try{
+        const {email, password} = req.body;
+        const user = await User.findOne({email});
+        if(!user){
+            res.code = 401;
+            throw new Error("Invalid credentials");
+        }
+
+        const match = await comparePassword(password, user.password);
+        if(!match){
+            res.code = 401;
+            throw new Error("Invalid credentials");
+        }
+
+        res.status(200).json({code: 200, status: true, message: "User signin successful"});
+    }catch(error){
+        next(error);
+    }
+}
+
+module.exports = {signup, signin};
