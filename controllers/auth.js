@@ -109,4 +109,92 @@ const verifyUser = async (req, res, next) => {
     }
 }
 
-module.exports = {signup, signin, verifyCode, verifyUser};
+const forgotPasswordCode = async (req,res,next) => {
+    try{
+        const {email} = req.body;
+
+        const user = await User.findOne({email});
+        if(!user){
+            res.code = 404;
+            throw new Error("User not found");
+        }
+
+        const code = generateCode(6);
+
+        user.forgotPasswordCode = code;
+        await user.save();
+        
+        await sendEmail({
+            emailTo: user.email,
+            subject: "Forgot Password code",
+            code,
+            content: "Change your password"
+        });
+        
+        res.status(200).json({code: 200, status: true, message: "Forgot password code sent successfully"});
+    }catch(error){
+        next(error);
+    }
+}
+
+const recoverPassword = async (req,res,next) => {
+    try{
+        
+        const {email, code, password} = req.body;
+
+        const user = await User.findOne({email});
+        if(!user){
+            res.code = 404;
+            throw new Error("User not found");
+        }
+
+        if(user.forgotPasswordCode !== code){
+            res.code = 400;
+            throw new Error("Invalid code");
+        }
+
+        const hashedPassword = await hashPassword(password);
+
+        user.password = hashedPassword;
+        user.forgotPasswordCode = null;
+        await user.save();
+
+        res.status(200).json({code: 200, status: true, message: "Password recovered successfully"});
+    }catch(error){
+        next(error);
+    }
+}
+
+const changePassword = async (req,res,next) => {
+    try{
+        const {oldPassword, newPassword} = req.body;
+        const {_id} = req.user;
+
+        const user = await User.findById(_id);
+        if(!user){
+            res.code = 404;
+            throw new Error("User not found");
+        }
+
+        const match = await comparePassword(oldPassword, user.password);
+        if(!match){
+            res.code = 400;
+            throw new Error("Old password does not match");
+        }
+
+        if(oldPassword === newPassword){
+            res.code = 400;
+            throw new Error("New password should be different from old password");
+        }
+
+        const hashedPassword = await hashPassword(newPassword);
+        user.password = hashedPassword;
+        await user.save();
+
+        res.status(200).json({code: 200, status: true, message: "Password changed successfully"});
+    }catch(error){
+        next(error);
+    }
+}
+
+module.exports = {signup, signin, verifyCode, verifyUser, forgotPasswordCode, recoverPassword, changePassword   };

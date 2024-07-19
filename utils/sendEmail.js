@@ -7,7 +7,7 @@ const sendEmail = async ({emailTo, subject, code, content}) => {
         port: 587,
         secure: false,
         auth: {
-            user: sendEmail,
+            user: senderEmail,
             pass: emailPassword
         }
     });
