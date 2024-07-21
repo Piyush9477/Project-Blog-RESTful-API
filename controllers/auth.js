@@ -197,4 +197,38 @@ const changePassword = async (req,res,next) => {
     }
 }
 
-module.exports = {signup, signin, verifyCode, verifyUser, forgotPasswordCode, recoverPassword, changePassword   };
+const updateProfile = async (req,res,next) => {
+    try{
+        const {_id} = req.user;
+        const {name, email} = req.body;
+
+        const user = await User.findById(_id).select("-password -verificationCode -forgotPasswordCode");
+        if(!user){
+            res.code = 404;
+            throw new Error("User not found");
+        }
+
+        if(email){
+            const userExists = await User.findOne({email});
+            if(userExists && userExists.email === email && String(userExists._id) !== String(user._id)){
+                res.code = 400;
+                throw new Error("Email already exists");
+            }
+        }
+
+        user.name = name ? name : user.name;
+        user.email = email ? email : user.email;
+
+        if(email){
+            user.isVerified = false;    
+        }
+
+        await user.save();
+
+        res.status(200).json({code: 200, status: true, message: "User profil updated successfully", data:{user}});
+    }catch(error){
+        next(error);
+    }
+}
+
+module.exports = {signup, signin, verifyCode, verifyUser, forgotPasswordCode, recoverPassword, changePassword, updateProfile};
